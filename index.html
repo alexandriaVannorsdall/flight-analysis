@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Data Statistics</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .statistic {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Flight Analysis Dashboard</h1>
+    <div class="statistic" id="averageJourneyTime">Loading...</div>
+    <div class="statistic" id="mostDeparturesDay">Loading...</div>
+    <div class="statistic" id="businessClassProportion">Loading...</div>
+    <div class="statistic" id="swedenFlightsProportion">Loading...</div>
+    <div class="statistic" id="longestJourneyTime">Loading...</div>
+    <div class="statistic" id="stats">Loading...</div>
+
+    <script>
+      async function fetchAnalysisData() {
+    try {
+        const response = await fetch('/api/analysis');
+        const data = await response.json();
+
+        console.log('Analysis Data:', data); // Add this line
+
+        document.getElementById('averageJourneyTime').innerText = `Average journey time between LHR and DXB: ${data.averageJourneyTime.toFixed(2)} minutes`;
+        document.getElementById('mostDeparturesDay').innerText = `Day with most departures from MAN: ${data.mostDeparturesDay}`;
+        document.getElementById('businessClassProportion').innerText = `Proportion of business class flights: ${data.businessClassProportion.toFixed(2)}%`;
+        document.getElementById('swedenFlightsProportion').innerText = `Percentage of flights into Sweden: ${data.swedenFlightsProportion.toFixed(2)}%`;
+        document.getElementById('longestJourneyTime').innerText = `Longest Journey Time: ${data.longestJourneyTime} hours (Flight Number: ${data.maxJourneyTimeFlight})`;
+    } catch (error) {
+        console.error('Error fetching analysis data:', error);
+    }
+}
+        async function fetchFlightData() {
+            try {
+                const response = await fetch('http://localhost:3000/api/flights');
+                
+                // Check if the response status is OK (status 200)
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const flights = await response.json();
+                console.log('Fetched flights:', flights); // Debugging log
+
+                // Process data to generate the required statistics
+                let lhrToDxbFlights = flights.filter(flight => flight.departureAirport === 'LHR' && flight.arrivalAirport === 'DXB');
+                console.log('LHR to DXB flights:', lhrToDxbFlights); // Debugging log
+
+                let averageJourneyTime = 0;
+                if (lhrToDxbFlights.length > 0) {
+                    averageJourneyTime = lhrToDxbFlights.reduce((acc, flight) => acc + flight.journeyTime, 0) / lhrToDxbFlights.length;
+                }
+                console.log('Average journey time:', averageJourneyTime); // Debugging log
+
+                let manDeparturesCount = flights.reduce((acc, flight) => {
+                    if (flight.departureAirport === 'MAN') {
+                        acc[flight.departureDay] = (acc[flight.departureDay] || 0) + 1;
+                    }
+                    return acc;
+                }, {});
+                console.log('Manchester departures count:', manDeparturesCount); // Debugging log
+
+                let mostDeparturesDay = Object.keys(manDeparturesCount).reduce((a, b) => manDeparturesCount[a] > manDeparturesCount[b] ? a : b, '');
+                console.log('Most departures day:', mostDeparturesDay); // Debugging log
+
+                let businessClassProportion = (flights.filter(flight => flight.class === 'business').length / flights.length) * 100;
+                console.log('Business class proportion:', businessClassProportion); // Debugging log
+
+                let swedenFlightsProportion = (flights.filter(flight => flight.arrivalAirport.includes('SW')).length / flights.length) * 100;
+                console.log('Sweden flights proportion:', swedenFlightsProportion); // Debugging log
+
+                let maxJourneyTimeFlight = flights.reduce((maxFlight, flight) => flight.journeyTime > maxFlight.journeyTime ? flight : maxFlight, flights[0]);
+                console.log('Longest journey flight:', maxJourneyTimeFlight); // Debugging log
+
+                document.getElementById('stats').innerHTML = `
+                    <p>Average journey time between London Heathrow (LHR) and Dubai (DXB): ${averageJourneyTime.toFixed(2)} minutes</p>
+                    <p>Day with most departures from Manchester (MAN): ${mostDeparturesDay}</p>
+                    <p>Proportion of business class flights: ${businessClassProportion.toFixed(2)}%</p>
+                    <p>Percentage of flights into Sweden: ${swedenFlightsProportion.toFixed(2)}%</p>
+                    <p>Longest journey flight is ${maxJourneyTimeFlight.flightNumber} with ${maxJourneyTimeFlight.journeyTime} minutes</p>
+                `;
+            } catch (error) {
+                console.error('Error fetching flight data:', error);
+                document.getElementById('stats').innerText = 'Failed to load flight data.';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAnalysisData();
+            fetchFlightData();
+        });
+    </script>
+</body>
+</html>
